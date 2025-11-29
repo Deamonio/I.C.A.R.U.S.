@@ -225,7 +225,11 @@ class MotorController:
         self.serial = SerialCommunicator()
         self.waiting_for_positions = False  # 프리셋 저장용 위치 요청 플래그
         self.passivity_presets = []  # 프리셋 저장용 임시 버퍼
-    
+        
+        # Normal 모드 시작 시 피드백 요청 중단
+        if not Config.PASSIVITY_MODE:
+            self.serial.send("2,0,0,0,0,0,0,0*")
+
     def _load_custom_presets(self) -> dict:
         """사용자 지정 프리셋 불러오기"""
         try:
@@ -324,11 +328,13 @@ class MotorController:
             self.passivity_initialized_motors = [False] * 7
             # Passivity 모드 시작: 피드백 요청 시작
             self.serial.send("2,1,0,0,0,0,0,0*")
+            print(f"{Colors.GREEN}[Feedback]{Colors.END} Feedback enabled (Passivity Mode)")
         else:
             self.is_passivity_first = False
             self.passivity_initialized_motors = [False] * 7
             # Normal 모드 복귀: 피드백 요청 중단
             self.serial.send("2,0,0,0,0,0,0,0*")
+            print(f"{Colors.YELLOW}[Feedback]{Colors.END} Feedback disabled (Normal Mode)")
         
         status = "enabled" if new_state else "disabled"
         print(f"{Colors.YELLOW}[Torque]{Colors.END} ALL motors torque {status}")
@@ -404,8 +410,8 @@ class MotorController:
         self.serial.send(command)
     
     def process_feedback(self):
-        """피드백 데이터 처리 - Passivity 모드에서만 실행"""
-        # Normal 모드에서는 피드백 처리하지 않음
+        """피드백 데이터 처리 - Passivity 모드 또는 프리셋 저장 시에만 실행"""
+        # Normal 모드에서는 수신 버퍼만 비우고 처리하지 않음
         if not Config.PASSIVITY_MODE and not self.waiting_for_positions:
             # 수신 큐 비우기 (버퍼 오버플로우 방지)
             while self.serial.get_received_data() is not None:
@@ -420,12 +426,17 @@ class MotorController:
                     positions = [int(p) for p in parts]
                     
                     if self.waiting_for_positions:
+                        # 프리셋 저장용 위치 수신
                         self.passivity_presets = positions
                         print(f"{Colors.CYAN}[RX Positions]{Colors.END} Received positions for preset save")
                     else:
                         print(f"{Colors.CYAN}[RX Positions]{Colors.END} {positions}")
                 
                 elif data.startswith("Feedback:"):
+                    # Passivity 모드에서만 피드백 처리
+                    if not Config.PASSIVITY_MODE:
+                        return
+                    
                     parts = data[len("Feedback:"):].split(',')
                     
                     if len(parts) < len(self.motors):
@@ -467,7 +478,7 @@ class MotorController:
                     current_time = pygame.time.get_ticks()
                     if current_time - self.last_feedback_log_time >= self.feedback_log_interval:
                         pos_str = ', '.join([f"M{i+1}:{int(p)}" for i, p in enumerate(new_positions)])
-                        print(f"{Colors.CYAN}[RX Feedback (Passivity)]{Colors.END} {pos_str}")
+                        print(f"{Colors.CYAN}[RX Feedback]{Colors.END} {pos_str}")
                         self.last_feedback_log_time = current_time
                     
                     # 모든 모터 초기화 완료 확인
@@ -476,6 +487,7 @@ class MotorController:
                         print(f"{Colors.GREEN}[Passivity Mode]{Colors.END} All motors synchronized")
                 
                 else:
+                    # 기타 메시지 (Normal 모드에서도 출력 가능)
                     print(f"{Colors.CYAN}[RX]{Colors.END} {data}")
             except Exception as e:
                 print(f"{Colors.RED}[Feedback Parse]{Colors.END} {e}")
@@ -520,9 +532,13 @@ class MotorController:
         """컨트롤러 종료"""
         print(f"{Colors.YELLOW}[Controller]{Colors.END} Shutting down motors...")
         
+        # 피드백 요청 중단
+        self.serial.send("2,0,0,0,0,0,0,0*")
+        
         # 기본 위치로 복귀
-        self.target_positions = [m.default_pos for m in self.motors]
-        self.send_control_command()
+        if not Config.PASSIVITY_MODE:
+            self.target_positions = [m.default_pos for m in self.motors]
+            self.send_control_command()
         
         # Serial 연결 종료
         self.serial.close()
