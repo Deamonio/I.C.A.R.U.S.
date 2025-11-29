@@ -37,7 +37,7 @@
 #endif
  
 
-const uint8_t DXL_ID = 6;
+const uint8_t DXL_ID = 7;
 const float DXL_PROTOCOL_VERSION = 1.0;
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
@@ -53,15 +53,17 @@ using namespace ControlTableItem;
 #define ID4            (4u)
 #define ID5            (5u)
 #define ID6            (6u)
+#define ID7            (7u)
 
 bool passivityMode = false;
 
 int mot1Pos = 512;
-int mot2Pos = 380;
-int mot3Pos = 800;
-int mot4Pos = 700;
-int mot5Pos = 512;
-int mot6Pos = 695;
+int mot2Pos = 512;
+int mot3Pos = 380;
+int mot4Pos = 800;
+int mot5Pos = 700;
+int mot6Pos = 512;
+int mot7Pos = 512;
 
 int mot1PosRead;
 int mot2PosRead;
@@ -69,7 +71,7 @@ int mot3PosRead;
 int mot4PosRead;
 int mot5PosRead;
 int mot6PosRead;
-
+int mot7PosRead;
 
 
 void setup() {
@@ -92,6 +94,7 @@ void setup() {
   dxl.writeControlTableItem(MOVING_SPEED, ID4, 100);
   dxl.writeControlTableItem(MOVING_SPEED, ID5, 100);
   dxl.writeControlTableItem(MOVING_SPEED, ID6, 100);
+  dxl.writeControlTableItem(MOVING_SPEED, ID7, 100);
 
 
   // Turn off torque when configuring items in EEPROM area
@@ -101,6 +104,7 @@ void setup() {
   dxl.torqueOff(ID4);
   dxl.torqueOff(ID5);
   dxl.torqueOff(ID6);
+  dxl.torqueOff(ID7);
   
   dxl.setOperatingMode(ID1, OP_POSITION);
   dxl.setOperatingMode(ID2, OP_POSITION);
@@ -108,6 +112,7 @@ void setup() {
   dxl.setOperatingMode(ID4, OP_POSITION);
   dxl.setOperatingMode(ID5, OP_POSITION);
   dxl.setOperatingMode(ID6, OP_POSITION);
+  dxl.setOperatingMode(ID7, OP_POSITION);
   
   dxl.torqueOn(ID1);
   dxl.torqueOn(ID2);
@@ -115,6 +120,7 @@ void setup() {
   dxl.torqueOn(ID4);
   dxl.torqueOn(ID5);
   dxl.torqueOn(ID6);
+  dxl.torqueOn(ID7);
   
 
   //start pos
@@ -124,6 +130,7 @@ void setup() {
   dxl.setGoalPosition(ID4, mot4Pos);
   dxl.setGoalPosition(ID5, mot5Pos);
   dxl.setGoalPosition(ID6, mot6Pos);
+  dxl.setGoalPosition(ID7, mot7Pos);
   delay(2000);
   
 }
@@ -140,11 +147,11 @@ void loop() {
 }
 
 void printSerial(String command) {
-  Serial.println(command+":"+String(mot1PosRead)+","+String(mot2PosRead)+","+String(mot3PosRead)+","+String(mot4PosRead)+","+String(mot5PosRead)+","+String(mot6PosRead));
+  Serial.println(command+":"+String(mot1PosRead)+","+String(mot2PosRead)+","+String(mot3PosRead)+","+String(mot4PosRead)+","+String(mot5PosRead)+","+String(mot6PosRead)+","+String(mot7PosRead));
 }
 
 void printSerial2() {
-  Serial.println(String(mot1Pos)+","+String(mot2Pos)+","+String(mot3Pos)+","+String(mot4Pos)+","+String(mot5Pos)+","+String(mot6Pos));
+  Serial.println(String(mot1Pos)+","+String(mot2Pos)+","+String(mot3Pos)+","+String(mot4Pos)+","+String(mot5Pos)+","+String(mot6Pos)+","+String(mot7Pos));
 }
 
 
@@ -156,6 +163,7 @@ void readMotorPos() {
   mot4PosRead = dxl.getPresentPosition(ID4);
   mot5PosRead = dxl.getPresentPosition(ID5);
   mot6PosRead = dxl.getPresentPosition(ID6);
+  mot7PosRead = dxl.getPresentPosition(ID7);
 }
 
 void moveMotor() {
@@ -165,6 +173,7 @@ void moveMotor() {
     dxl.torqueOn(ID4);
     dxl.torqueOn(ID5);
     dxl.torqueOn(ID6);
+    dxl.torqueOn(ID7);
 
     dxl.setGoalPosition(ID1, mot1Pos);
     dxl.setGoalPosition(ID2, mot2Pos);
@@ -172,11 +181,12 @@ void moveMotor() {
     dxl.setGoalPosition(ID4, mot4Pos);
     dxl.setGoalPosition(ID5, mot5Pos);
     dxl.setGoalPosition(ID6, mot6Pos);
+    dxl.setGoalPosition(ID7, mot7Pos);
 }
 
 void receiveSerial() {
   if (Serial.available()) {
-    int c, n1, n2, n3, n4, n5, n6;
+    int c, n1, n2, n3, n4, n5, n6, n7;
 
     String packet = Serial.readStringUntil('*');
     
@@ -188,15 +198,16 @@ void receiveSerial() {
     // String data = packet.substring(colonIndex + 1);
     
 
-    sscanf(packet.c_str(), "%d,%d,%d,%d,%d,%d,%d", &c, &n1, &n2, &n3, &n4, &n5, &n6); //mot1Pos,mot2Pos,mot3Pos,mot4Pos,mot5Pos,mot6Pos
+    sscanf(packet.c_str(), "%d,%d,%d,%d,%d,%d,%d,%d", &c, &n1, &n2, &n3, &n4, &n5, &n6, &n7); //mot1Pos,mot2Pos,mot3Pos,mot4Pos,mot5Pos,mot6Pos
     
     if (c == 0) {
       mot1Pos = constrain(n1, 0, 1023);
-      mot2Pos = constrain(n2, 200, 836);
-      mot3Pos = constrain(n3, 512, 836);
-      mot4Pos = constrain(n4, 512, 836);
-      mot5Pos = constrain(n5, 0, 1023);
-      mot6Pos = constrain(n6, 370, 695);
+      mot2Pos = constrain(n2, 180, 845);
+      mot3Pos = constrain(n3, 165, 1023);
+      mot4Pos = constrain(n4, 512, 1023);
+      mot5Pos = constrain(n5, 512, 1023);
+      mot6Pos = constrain(n6, 0, 1023);
+      mot7Pos = constrain(n7, 370, 695);
       moveMotor();
     }
     else if (c == 1) {
@@ -207,6 +218,7 @@ void receiveSerial() {
         dxl.torqueOn(ID4);
         dxl.torqueOn(ID5);
         dxl.torqueOn(ID6);
+        dxl.torqueOn(ID7);
       }
       else if (n1 == 0) {
         dxl.torqueOff(ID1);
@@ -215,6 +227,7 @@ void receiveSerial() {
         dxl.torqueOff(ID4);
         dxl.torqueOff(ID5);
         dxl.torqueOff(ID6);
+        dxl.torqueOff(ID7);
       }
     }
     else if (c == 3) {
