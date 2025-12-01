@@ -1,4 +1,4 @@
-# Manufacture_Robot
+# I.C.A.R.U.S.
 
 https://github.com/jumejume1/AX-12A-servo-library
 <p>
